@@ -1,0 +1,36 @@
+#!/bin/bash
+
+USAGE=$(cat << EOF
+Usage: ${0##*/} <file> <switch string>
+EOF
+)
+
+DEPS=(pgrep tail)
+
+usage() {
+  echo -e "${USAGE}" 1>&2
+  exit 1
+}
+
+deps() {
+  for i in ${DEPS[@]}; do
+    `command -v ${i} > /dev/null 2>&1` || die "${i} is not installed!"
+  done
+}
+
+[[ ${#} -ne 2 || ! -e ${1} ]] && usage
+
+exec 3< <(tail -f "${1}") 2>/dev/null
+pid=${!}
+while true; do 
+  read <&3 l
+  echo ${l}
+  f=$(echo ${l} | grep -Po "(?<=${2} ).+")
+  if [[ "${f}" != "" && -e "${f}" ]]; then
+    pids=$(pgrep -P ${pid})
+    [[ "${pids}" != "" ]] && kill -SIGINT ${pids}
+    echo "---- Opening ${f}"
+    exec 3< <(tail -f "${f}") 2>/dev/null
+    pid=${!}
+  fi
+done

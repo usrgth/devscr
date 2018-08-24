@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+GEN=(bootstrap.sh autogen.sh)
+
+help() {
+  echo "Usage: ${0##*/}" 1>&2
+
+  exit 1
+}
+
+log() {
+  echo -en "\e[32m${1}...\e[0m\n"
+}
+
+die() {
+  echo -e "\e[0;31m${1}\e[0m" 1>&2
+  exit 1
+}
+
+gen() {
+  for i in ${GEN[@]}; do
+    [ -e ./${i} ] && ( ( ./${i} || exit 1) && break )
+  done
+}
+
+[[ "${#}" -ne "0" ]] && help
+
+gen
+
+bs=("build.sh" "CMakeLists.txt" "configure" "Makefile" "Jamfile.jam" "gulpfile.js")
+cmd=("./build.sh" "mkdir -p b && cd b && cmake .. && make" "./configure && make" "make" "b2" "npm install")
+
+for ((i=0;i<${#bs[@]};i++)); do
+  if [[ -e "./${bs[${i}]}" ]]; then
+    echo "${cmd[${i}]}"
+    eval ${cmd[${i}]} || die "Building failed."
+    log "Build succeeded."
+    exit 0
+  fi
+done
+
+pro=(`find . -name '*.pro'`)
+if [[ ${#pro} -gt 0 ]]; then
+  cmd="qmake-qt5 ${pro[0]} && make"
+  ( ${cmd} ) || die "Building failed."
+  log "Build succeeded."
+  exit 0
+fi
+
+die "Build system not recognized."
